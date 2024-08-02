@@ -39,6 +39,21 @@ SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
 (cd "$SCRIPT_DIR/deps"; git clone "$1" "$2")
 """
 
+pls_h_dir = f"{flags.dotpls}/pls_h_dir"
+pls_h = os.path.join(pls_h_dir, "pls.h")
+# TODO(dkorolev): This is the ugly version of this file, gotta clean it up.
+pls_h_contents = """#pragma once
+#ifndef PLS_INSTRUMENTATION
+#define PLS_JOIN_HELPER(a,b) a##b
+#define PLS_JOIN(a,b) PLS_JOIN_HELPER(a,b)
+#define PLS_IMPORT(lib,repo) \
+constexpr static char const* const PLS_JOIN(kPlsImportLib,__COUNTER__) = lib; \
+constexpr static char const* const PLS_JOIN(kPlsImportRepo,__COUNTER__) = repo;
+#else
+#define PLS_IMPORT(lib,repo) PLS_INSTRUMENTATION_OUTPUT{"pls_import":{"lib":lib,"repo":repo}}
+#endif
+"""
+
 def pls_fail(msg):
   # TODO(dkorolev): Write the failure message to an env-provided file, for "unit"-testing `pls`.
   print(msg)
@@ -194,6 +209,12 @@ def update_dependencies():
       file.write(cc_git_clone_sh_contents)
     os.chmod(git_clone_sh, 0o755)
 
+  if not os.path.isdir(pls_h_dir):
+    os.mkdir(pls_h_dir)
+  if not os.path.isfile(pls_h):
+    with open(pls_h, "w") as file:
+      file.write(pls_h_contents)
+
   traverse_source_tree()
 
   apply_gitignore_changes()
@@ -233,7 +254,7 @@ def cmd_install(args):
 def cmd_build(args):
   update_dependencies()
   # TODO(dkorolev): Debug/release.
-  result = subprocess.run(["cmake", "-B", ".debug"])
+  result = subprocess.run(["cmake", "-B", ".debug", f"-DCMAKE_CXX_FLAGS=-I{os.path.abspath(pls_h_dir)}"])
   if result.returncode != 0:
     pls_fail("PLS: cmake configuration failed.")
   result = subprocess.run(["cmake", "--build", ".debug"])
