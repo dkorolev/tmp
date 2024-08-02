@@ -11,6 +11,8 @@
 # TODO(dkorolev): Should `.debug` and `.release` be symlinks to `.pls/.debug` and `.pls/.release`?
 # TODO(dkorolev): CMAKE_BUILD_TYPE, NDEBUG, and test for these.
 # TODO(dkorolev): Add `pls runwithcoredump` ?
+# TODO(dkorolev): Check for broken symlinks, they need to be re-cloned.
+# TODO(dkorolev): Figure out bash/zsh completion.
 
 import os
 import sys
@@ -26,7 +28,7 @@ flags, cmd = parser.parse_known_args()
 
 cc_instrument_sh = f"{flags.dotpls}/cc_instrument.sh"
 cc_instrument_sh_contents = """#!/bin/bash
-g++ -D PLS_INSTRUMENTATION -E "src/$1" 2>/dev/null | grep PLS_INSTRUMENTATION_OUTPUT | sed 's/^PLS_INSTRUMENTATION_OUTPUT//g'
+g++ -D PLS_INSTRUMENTATION -E "$1" 2>/dev/null | grep PLS_INSTRUMENTATION_OUTPUT | sed 's/^PLS_INSTRUMENTATION_OUTPUT//g'
 """
 
 git_clone_sh = f"{flags.dotpls}/cc_git_clone.sh"
@@ -41,7 +43,39 @@ def pls_fail(msg):
   print(msg)
   sys.exit(1)
 
+if os.path.isfile("pls.py") or os.path.isfile("pls"):
+  pls_fail("PLS: You are probably running `pls` from the wrong directory. Navigate to your project directory first.")
+
+modules = {}
 executables = {}
+
+# Support both projects with source files in `src/` and in the main project directory.
+default_src_dirs = [".", "src"]
+
+def parse_modules_from(src_dirs):
+  # TODO(dkorolev): Traverse recursively.
+  # TODO(dkorolev): `libraries`? And a command to `run` them, if only with `objdump -s`?
+  for src_dir in src_dirs:
+    if src_dir == "." or os.path.isdir(src_dir):
+      for src_name in os.listdir(src_dir):
+        if src_name.endswith(".cc"):
+          executable_name = src_name.rstrip(".cc")
+          executables[executable_name] = executable_name  # TODO(dkorolev): Support `module::example_binary` names.
+          pls_commands = []
+          result = subprocess.run(["bash", cc_instrument_sh, os.path.join(src_dir, src_name)], capture_output=True, text=True)
+          for line in result.stdout.split("\n"):
+            stripped_line = line.rstrip(";").strip()
+            if stripped_line:
+              pls_commands.append(json.loads(stripped_line))
+          for pls_cmd in pls_commands:
+            if "pls_import" in pls_cmd:
+              pls_import = pls_cmd["pls_import"]
+              if "lib" in pls_import and "repo" in pls_import:
+                # TODO(dkorolev): Add branches. Fail if they do not match while installing the dependencies recursively.
+                # TODO(dkorolev): Maybe create and add to `#include`-s path the `pls.h` file from this tool?
+                # TODO(dkorolev): Variadic macro templates for branches.
+                modules[pls_import["lib"]] = pls_import["repo"]
+
 def update_dependencies():
   add_to_gitignores = defaultdict(list)
 
@@ -104,30 +138,7 @@ def update_dependencies():
       file.write(cc_git_clone_sh_contents)
     os.chmod(git_clone_sh, 0o755)
 
-  src_dirs = [".", "src"]  # Support both projects with source files in `src/` and in the main project directory.
-  modules = {}
-  # TODO(dkorolev): Traverse recursively.
-  # TODO(dkorolev): `libraries`? And a command to `run` them, if only with `objdump -s`?
-  for src_dir in src_dirs:
-    if src_dir == "." or os.path.isdir(src_dir):
-      for src_name in os.listdir(src_dir):
-        if src_name.endswith(".cc"):
-          executable_name = src_name.rstrip(".cc")
-          executables[executable_name] = executable_name  # TODO(dkorolev): Support `module::example_binary` names.
-          pls_commands = []
-          result = subprocess.run(["bash", cc_instrument_sh, src_name], capture_output=True, text=True)
-          for line in result.stdout.split("\n"):
-            stripped_line = line.rstrip(";").strip()
-            if stripped_line:
-              pls_commands.append(json.loads(stripped_line))
-          for pls_cmd in pls_commands:
-            if "pls_import" in pls_cmd:
-              pls_import = pls_cmd["pls_import"]
-              if "lib" in pls_import and "repo" in pls_import:
-                # TODO(dkorolev): Add branches. Fail if they do not match while installing the dependencies recursively.
-                # TODO(dkorolev): Maybe create and add to `#include`-s path the `pls.h` file from this tool?
-                # TODO(dkorolev): Variadic macro templates for branches.
-                modules[pls_import["lib"]] = pls_import["repo"]
+  parse_modules_from(default_src_dirs)
 
   for lib, repo in modules.items():
     libdir = f"{flags.dotpls}/deps/{lib}"
@@ -165,7 +176,17 @@ def cmd_version(unused_args):
   print(f"PLS v0.0.1 NOT READY YET")
 
 def cmd_clean(args):
+  parse_modules_from(default_src_dirs)
+  previously_broken_symlinks = set()
+  for lib, _ in modules.items():
+    if not os.path.exists(os.readlink(lib)):
+      previously_broken_symlinks.add(lib)
   result = subprocess.run(["rm", "-rf", ".pls"])
+  for lib, _ in modules.items():
+    if not os.path.exists(os.readlink(lib)) and not lib in previously_broken_symlinks:
+      if flags.verbose:
+        print(f"PLS: Unlinking the now-broken link to `{lib}`.")
+      os.unlink(lib)
   if result.returncode != 0:
     pls_fail("PLS: Could not clean the build.")
   if flags.verbose:
