@@ -3,9 +3,9 @@
 # REMAINS FOR v0.0.1 to be "complete":
 # * Generate the `CMakeLists.txt` if not exists.
 # * Provide the `pls.h` file by this tool.
-# * Scan the dependencies recursively.
 # * Wrap each dependency into a singleton.
 # * Basic tests, and a Github action running them.
+# * During the call to `pls clean` it should not `git clone` anything; need to use some state/cache file!
 
 # TODO(dkorolev): Test `--dotpls` for real.
 # TODO(dkorolev): Should `.debug` and `.release` be symlinks to `.pls/.debug` and `.pls/.release`?
@@ -19,6 +19,7 @@ import sys
 import subprocess
 import argparse
 import json
+from collections import deque
 from collections import defaultdict
 
 parser = argparse.ArgumentParser(description="PLS: The trivial build system for C++ and beyond, v0.01")
@@ -52,21 +53,53 @@ executables = {}
 # Support both projects with source files in `src/` and in the main project directory.
 default_src_dirs = [".", "src"]
 
-def parse_modules_from(src_dirs):
+add_to_gitignores = defaultdict(list)
+
+add_to_gitignores["."].append(flags.dotpls)
+add_to_gitignores["."].append(".debug")
+add_to_gitignores["."].append(".release")
+
+already_traversed_src_dirs = set()
+def traverse_source_tree(src_dirs=default_src_dirs):
   # TODO(dkorolev): Traverse recursively.
   # TODO(dkorolev): `libraries`? And a command to `run` them, if only with `objdump -s`?
+  queue_list = deque()
+  queue_set = set()
   for src_dir in src_dirs:
-    if src_dir == "." or os.path.isdir(src_dir):
+    queue_list.append(src_dir)
+    queue_set.add(src_dir)
+  while queue_list:
+    src_dir = queue_list.popleft()
+    if src_dir not in already_traversed_src_dirs and (src_dir == "." or os.path.isdir(src_dir)):
+      libs_to_import = set()
+      already_traversed_src_dirs.add(src_dir)
+      pls_json_path = os.path.join(src_dir, "pls.json")
+      if os.path.isfile(pls_json_path):
+        pls_json = None
+        with open(pls_json_path, "r") as file:
+          try:
+            pls_json = json.loads(file.read().replace("\n", " "))
+          except json.decoder.JSONDecodeError as e:
+            pls_fail(f"PLS: Failed to parse `{pls_json_path}`: {e}.")
+        if "import" in pls_json:
+          for lib, repo in pls_json["import"].items():
+            # TODO(dkorolev): Fail on branch mismatch.
+            modules[lib] = repo
+            libs_to_import.add(lib)
       for src_name in os.listdir(src_dir):
         if src_name.endswith(".cc"):
           executable_name = src_name.rstrip(".cc")
           executables[executable_name] = executable_name  # TODO(dkorolev): Support `module::example_binary` names.
           pls_commands = []
-          result = subprocess.run(["bash", cc_instrument_sh, os.path.join(src_dir, src_name)], capture_output=True, text=True)
+          full_src_name = os.path.join(src_dir, src_name)
+          result = subprocess.run(["bash", cc_instrument_sh, full_src_name], capture_output=True, text=True)
           for line in result.stdout.split("\n"):
             stripped_line = line.rstrip(";").strip()
             if stripped_line:
-              pls_commands.append(json.loads(stripped_line))
+              try:
+                pls_commands.append(json.loads(stripped_line))
+              except json.decoder.JSONDecodeError as e:
+                pls_fail(f"PLS internal error: Can not parse `{stripped_line}` while processing `{full_src_name}`.")
           for pls_cmd in pls_commands:
             if "pls_import" in pls_cmd:
               pls_import = pls_cmd["pls_import"]
@@ -74,15 +107,35 @@ def parse_modules_from(src_dirs):
                 # TODO(dkorolev): Add branches. Fail if they do not match while installing the dependencies recursively.
                 # TODO(dkorolev): Maybe create and add to `#include`-s path the `pls.h` file from this tool?
                 # TODO(dkorolev): Variadic macro templates for branches.
-                modules[pls_import["lib"]] = pls_import["repo"]
+                lib, repo = pls_import["lib"], pls_import["repo"]
+                modules[lib] = repo
+                libs_to_import.add(lib)
+      for lib in libs_to_import:
+        if lib not in queue_set:
+          queue_list.append(lib)
+          queue_set.add(lib)
+          repo = modules[lib]
+          libdir = f"{flags.dotpls}/deps/{lib}"
+          if os.path.isdir(lib):
+            if flags.verbose:
+              print(f"PLS: Has symlink to `{lib}`, will use it.")
+          else:
+            if not os.path.isdir(libdir):
+              if flags.verbose:
+                print(f"PLS: Need to clone `{lib}` from `{repo}`.")
+              result = subprocess.run(["bash", git_clone_sh, repo, lib])
+              if result.returncode != 0:
+                pls_fail(f"PLS: Clone of {repo} failed.")
+              add_to_gitignores["."].append(lib)
+            else:
+              if flags.verbose:
+                print(f"PLS: Has module `{lib}`, will use it.")
+            if not os.path.isdir(libdir):
+              pls_fail(f"PLS internal error: repl {repo} cloned into {lib}, but can not be located.")
+            if not os.path.isdir(lib):
+              os.symlink(libdir, lib, target_is_directory=True)
 
 def update_dependencies():
-  add_to_gitignores = defaultdict(list)
-
-  add_to_gitignores["."].append(flags.dotpls)
-  add_to_gitignores["."].append(".debug")
-  add_to_gitignores["."].append(".release")
-
   if os.path.isfile("CMakeLists.txt"):
     if flags.verbose:
       print("PLS: Has `CMakeLists.txt`, will use it.")
@@ -138,45 +191,22 @@ def update_dependencies():
       file.write(cc_git_clone_sh_contents)
     os.chmod(git_clone_sh, 0o755)
 
-  parse_modules_from(default_src_dirs)
-
-  for lib, repo in modules.items():
-    libdir = f"{flags.dotpls}/deps/{lib}"
-    if os.path.isdir(lib):
-      if flags.verbose:
-        print(f"PLS: Has symlink to `{lib}`, will use it.")
-    else:
-      if not os.path.isdir(libdir):
-        if flags.verbose:
-          print(f"PLS: Need to clone `{lib}` from `{repo}`.")
-        result = subprocess.run(["bash", git_clone_sh, repo, lib])
-        if result.returncode != 0:
-          pls_fail(f"PLS: Clone of {repo} failed.")
-        add_to_gitignores["."].append(lib)
-      else:
-        if flags.verbose:
-          print(f"PLS: Has module `{lib}`, will use it.")
-      if not os.path.isdir(libdir):
-        pls_fail(f"PLS: Internal error: repl {repo} cloned into {lib}, but can not be located.")
-      if not os.path.isdir(lib):
-        os.symlink(libdir, lib, target_is_directory=True)
-    # TODO(dkorolev): Recursive scan! And add the right symlinks to all the [sub]modules!
-    # TODO(dkorolev): Modules as singletons. This I have a test for.
+  traverse_source_tree()
 
   apply_gitignore_changes()
 
 if not cmd:
   # TODO(dkorolev): Differentiate between debug and release?
   # TODO(dkorolev): The "selfupdate" command, in case `pls` is `alias`-ed into a cloned repo?
-  print("PLS: Requires a command, the most common ones are `build`, `run`, `clean`,`test`, and `version`.")
-  # TODO(dkorolev): Custom commands.
+  # TODO(dkorolev): `test` to run the tests, and also `release_test`.
+  print("PLS: Requires a command, the most common ones are `build`, `run`, `clean`, and `version`.")
   sys.exit(0)
 
 def cmd_version(unused_args):
   print(f"PLS v0.0.1 NOT READY YET")
 
 def cmd_clean(args):
-  parse_modules_from(default_src_dirs)
+  traverse_source_tree()
   previously_broken_symlinks = set()
   for lib, _ in modules.items():
     if not os.path.exists(os.readlink(lib)):
