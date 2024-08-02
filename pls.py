@@ -74,6 +74,12 @@ add_to_gitignores["."].append(flags.dotpls)
 add_to_gitignores["."].append(".debug")
 add_to_gitignores["."].append(".release")
 
+def create_symlink_with_cmakelists_txt(src_dir, lib_name, lib_full_dir):
+  # TODO(dkorolev): Creating the symlink should involve the `.gitignore` magic.
+  desired_symlink_dir = os.path.join(src_dir, lib_name)
+  if not os.path.isdir(desired_symlink_dir):
+    os.symlink(lib_full_dir, desired_symlink_dir, target_is_directory=True)
+
 already_traversed_src_dirs = set()
 def traverse_source_tree(src_dirs=default_src_dirs):
   # TODO(dkorolev): Traverse recursively.
@@ -130,12 +136,12 @@ def traverse_source_tree(src_dirs=default_src_dirs):
           queue_list.append(lib)
           queue_set.add(lib)
           repo = modules[lib]
-          libdir = f"{flags.dotpls}/deps/{lib}"
+          lib_dir = f"{flags.dotpls}/deps/{lib}"
           if os.path.isdir(lib):
             if flags.verbose:
               print(f"PLS: Has symlink to `{lib}`, will use it.")
           else:
-            if not os.path.isdir(libdir):
+            if not os.path.isdir(lib_dir):
               if flags.verbose:
                 print(f"PLS: Need to clone `{lib}` from `{repo}`.")
               result = subprocess.run(["bash", git_clone_sh, repo, lib])
@@ -145,13 +151,10 @@ def traverse_source_tree(src_dirs=default_src_dirs):
             else:
               if flags.verbose:
                 print(f"PLS: Has module `{lib}`, will use it.")
-            if not os.path.isdir(libdir):
+            if not os.path.isdir(lib_dir):
               pls_fail(f"PLS internal error: repl {repo} cloned into {lib}, but can not be located.")
-            if not os.path.isdir(lib):
-              os.symlink(os.path.abspath(libdir), lib, target_is_directory=True)
-              if src_dir != ".":
-                # TODO(dkorolev): All the `.gitignore` magic!
-                os.symlink(os.path.abspath(libdir), os.path.join(src_dir, lib), target_is_directory=True)
+            create_symlink_with_cmakelists_txt(".", lib, os.path.abspath(lib_dir))
+            create_symlink_with_cmakelists_txt(src_dir, lib, os.path.abspath(lib_dir))
 
 def update_dependencies():
   if os.path.isfile("CMakeLists.txt"):
