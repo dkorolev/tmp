@@ -133,7 +133,10 @@ def traverse_source_tree(src_dirs=default_src_dirs):
             if not os.path.isdir(libdir):
               pls_fail(f"PLS internal error: repl {repo} cloned into {lib}, but can not be located.")
             if not os.path.isdir(lib):
-              os.symlink(libdir, lib, target_is_directory=True)
+              os.symlink(os.path.abspath(libdir), lib, target_is_directory=True)
+              if src_dir != ".":
+                # TODO(dkorolev): All the `.gitignore` magic!
+                os.symlink(os.path.abspath(libdir), os.path.join(src_dir, lib), target_is_directory=True)
 
 def update_dependencies():
   if os.path.isfile("CMakeLists.txt"):
