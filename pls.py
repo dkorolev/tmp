@@ -78,7 +78,7 @@ def traverse_source_tree(src_dirs=default_src_dirs):
         pls_json = None
         with open(pls_json_path, "r") as file:
           try:
-            pls_json = json.loads(file.read().replace("\n", " "))
+            pls_json = json.loads(file.read())
           except json.decoder.JSONDecodeError as e:
             pls_fail(f"PLS: Failed to parse `{pls_json_path}`: {e}.")
         if "import" in pls_json:
