@@ -92,13 +92,14 @@ def create_symlink_with_cmakelists_txt(dst_dir, lib_name, lib_cloned_dir):
   # TODO(dkorolev): Creating the symlink should involve the `.gitignore` magic.
   final_dst_path = os.path.join(dst_dir, lib_name)
   if not os.path.isdir(final_dst_path):
-    wrapper_top_dir = os.path.abspath(os.path.join(flags.dotpls, "singleton_deps"))
-    wrapper_dir = os.path.join(wrapper_top_dir, lib_name)
+    wrapper_top_dir = os.path.join(flags.dotpls, "singleton_deps")
+    # TODO(dkorolev): So, the top-level symlinks created can be relative paths, the rest should be absolute. Fix this.
+    wrapper_dir = os.path.join(os.path.abspath(wrapper_top_dir), lib_name)
     os.makedirs(wrapper_dir, exist_ok=True)
-    if not os.path.isdir(os.path.join(wrapper_dir, "impl")):
-      os.symlink(lib_cloned_dir, os.path.abspath(os.path.join(wrapper_dir, "impl")), target_is_directory=True)
-    if not os.path.isdir(os.path.join(dst_dir, lib_name)):
-      os.symlink(wrapper_dir, os.path.abspath(os.path.join(dst_dir, lib_name)), target_is_directory=True)
+    wrapper_dir_impl = os.path.join(wrapper_dir, "impl")
+    if not os.path.isdir(wrapper_dir_impl):
+      os.symlink(os.path.abspath(lib_cloned_dir), wrapper_dir_impl, target_is_directory=True)
+    os.symlink(wrapper_dir, final_dst_path, target_is_directory=True)
     cmakelists_path = os.path.join(wrapper_dir, "CMakeLists.txt")
     if not os.path.isfile(cmakelists_path):
       with open(cmakelists_path, "w") as file:
@@ -118,7 +119,6 @@ def traverse_source_tree(src_dirs=default_src_dirs):
     add_to_queue(src_dir)
   while queue_list:
     src_dir = queue_list.popleft()
-    src_dir = os.path.abspath(src_dir)
     if src_dir not in already_traversed_src_dirs and (src_dir == "." or os.path.isdir(src_dir)):
       libs_to_import = set()
       already_traversed_src_dirs.add(src_dir)
@@ -180,8 +180,8 @@ def traverse_source_tree(src_dirs=default_src_dirs):
                 print(f"PLS: Has module `{lib}`, will use it.")
             if not os.path.isdir(lib_dir):
               pls_fail(f"PLS internal error: repl {repo} cloned into {lib}, but can not be located.")
-            create_symlink_with_cmakelists_txt(dst_dir=".", lib_name=lib, lib_cloned_dir=os.path.abspath(lib_dir))
-            create_symlink_with_cmakelists_txt(dst_dir=src_dir, lib_name=lib, lib_cloned_dir=os.path.abspath(lib_dir))
+            create_symlink_with_cmakelists_txt(dst_dir=".", lib_name=lib, lib_cloned_dir=lib_dir)
+            create_symlink_with_cmakelists_txt(dst_dir=src_dir, lib_name=lib, lib_cloned_dir=lib_dir)
 
 def update_dependencies():
   if os.path.isfile("CMakeLists.txt"):
@@ -266,7 +266,7 @@ def cmd_clean(args):
     if os.path.islink(lib):
       if not os.path.exists(os.readlink(lib)):
         previously_broken_symlinks.add(lib)
-  result = subprocess.run(["rm", "-rf", ".pls"])
+  result = subprocess.run(["rm", "-rf", ".pls", ".debug", ".release"])
   for lib, _ in modules.items():
     if os.path.islink(lib) and not os.path.exists(os.readlink(lib)) and not lib in previously_broken_symlinks:
       if flags.verbose:
