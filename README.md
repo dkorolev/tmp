@@ -48,6 +48,8 @@ Also, if this `CMakeLists.txt` was created by `pls`, it will be added to `.gitig
 
 The idea behind `pls` is that if the user intends to have a `CMakeLists.txt` file, this user-provided `CMakeLists.txt` file will be kept. If not, then the user likely does not want `CMakeLists.txt`, so the "trivial" boilerplate `CMakeLists.txt` that is being created should be treated as ephemeral. Simplicity first is key.
 
+Also, by default `pls` looks into the root project directory and its `src/` subdirectory. Dirs beyond these two are non-standard, and require an explicit mention in `pls.json`, see below. `TODO(dkorolev):` Implement and test this.
+
 ### Dependency
 
 Now, let's use a trivial dependency.
