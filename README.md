@@ -74,7 +74,9 @@ Besides, after the first run of `pls`, either `pls build` or `pls run`, the crea
 
 Note that you do not need the `"pls.h"` file. The `pls`-provided build setup will place it in a temporary folder.
 
-The order in which the `PLS_IMPORT` directive is used and the respective header file is `#include`-d is not important. The semicolon after `PLS_IMPORT` is optional too.
+When it comes to where the `PLS_IMPORT` "directive" should go in the code, just make sure it takes place before `#include`-ing any headers from the libraries to be imported. Otherwise the preprocessor will fail on missing header files, will never get to processing the `PLS_IMPORT` statements, and the auto-import magic will not work.
+
+The semicolon after `PLS_IMPORT` is optional.
 
 Behind the scenes, in the "true" build, the `PLS_IMPORT` macro is only checking that the passed-in parameters are compile-time strings. During the build phase, the `PLS_IMPORT` directive is parsed differently, so that the dependencies are extracted by `pls`.
 
