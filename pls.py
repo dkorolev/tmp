@@ -196,7 +196,7 @@ def traverse_source_tree(src_dir="."):
           add_to_queue(os.path.join(flags.dotpls, "deps", lib))
           repo = modules[lib]
           lib_dir = f"{flags.dotpls}/deps/{lib}"
-          if os.path.isdir(lib):
+          if os.path.isdir(os.path.join(src_dir, lib)):
             if flags.verbose:
               print(f"PLS: Has symlink to `{lib}`, will use it.")
           else:
