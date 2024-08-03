@@ -10,6 +10,7 @@
 # * Basic tests, and a Github action running them.
 # * During the call to `pls clean` it should not `git clone` anything; need to use some state/cache file!
 
+# TODO(dkorolev): Add `setup.py` so that `pls` can be installed into the system via `pip3 install pls`.
 # TODO(dkorolev): Test `--dotpls` for real.
 # TODO(dkorolev): Should `.debug` and `.release` be symlinks to `.pls/.debug` and `.pls/.release`?
 # TODO(dkorolev): CMAKE_BUILD_TYPE, NDEBUG, and test for these.
