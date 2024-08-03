@@ -85,7 +85,6 @@ if os.path.isfile("pls.py") or os.path.isfile("pls"):
   pls_fail("PLS: You are probably running `pls` from the wrong directory. Navigate to your project directory first.")
 
 modules = {}
-executables = {}
 
 @dataclass
 class PerDirectoryStatus:
@@ -158,7 +157,6 @@ def traverse_source_tree(src_dir="."):
             # TODO(dkorolev): This looks like a terrible hack, but would do for now.
             if not "lib_" in executable_name and not "_lib" in executable_name:
               per_dir[src_dir].executables[executable_name] = prefix + src_name
-              executables[executable_name] = executable_name  # TODO(dkorolev): Support `module::example_binary` names.
             pls_commands = []
             full_src_name = os.path.join(true_src_dir, src_name)
             result = subprocess.run(["bash", cc_instrument_sh, full_src_name], capture_output=True, text=True)
@@ -351,6 +349,7 @@ def cmd_build(args):
 def cmd_run(args):
   cmd_build([])
   # TODO(dkorolev): Forward the command line? And test it?
+  executables = per_dir[os.path.abspath(".")].executables
   if not args:
     if len(executables) == 1:
       result = subprocess.run([f"./.debug/{next(iter(executables.keys()))}"])
