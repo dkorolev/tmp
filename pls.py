@@ -89,11 +89,16 @@ executables = {}
 # Support both projects with source files in `src/` and in the main project directory.
 default_src_dirs = [".", "src"]
 
-add_to_gitignores = defaultdict(list)
+class PerDirectoryStatus:
+  def __init__(self):
+    self.add_to_gitignore = []
 
-add_to_gitignores["."].append(flags.dotpls)
-add_to_gitignores["."].append(".debug")
-add_to_gitignores["."].append(".release")
+per_dir = defaultdict(PerDirectoryStatus)
+
+full_abspath = os.path.abspath(".")
+per_dir[full_abspath].add_to_gitignore.append(flags.dotpls)
+per_dir[full_abspath].add_to_gitignore.append(".debug")
+per_dir[full_abspath].add_to_gitignore.append(".release")
 
 def create_symlink_with_cmakelists_txt(dst_dir, lib_name, lib_cloned_dir):
   # TODO(dkorolev): Creating the symlink should involve the `.gitignore` magic.
@@ -185,7 +190,7 @@ def traverse_source_tree(src_dirs=default_src_dirs):
               result = subprocess.run(["bash", git_clone_sh, repo, lib])
               if result.returncode != 0:
                 pls_fail(f"PLS: Clone of {repo} failed.")
-              add_to_gitignores["."].append(lib)
+              per_dir[full_abspath].add_to_gitignore.append(lib)
             else:
               if flags.verbose:
                 print(f"PLS: Has module `{lib}`, will use it.")
@@ -201,11 +206,12 @@ def update_dependencies():
   else:
     if flags.verbose:
       print("PLS: No `CMakeLists.txt`, will generate it, and will add it to `.gitignore`.")
-    add_to_gitignores["."].append("CMakeLists.txt")
+    per_dir[full_abspath].add_to_gitignore.append("CMakeLists.txt")
 
   def apply_gitignore_changes():
-    for gitignore_file_path, gitignore_lines in add_to_gitignores.items():
-      gitignore_file = f"{gitignore_file_path}/.gitignore"
+    for full_dir, full_dir_data in per_dir.items():
+      gitignore_lines = sorted(full_dir_data.add_to_gitignore)
+      gitignore_file = f"{full_dir}/.gitignore"
       skip_this_gitignore = False
       need_newline_in_gitignore = False
       all_lines = set(gitignore_lines)
