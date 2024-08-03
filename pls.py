@@ -39,10 +39,13 @@ pls_h_contents = """#pragma once
 #ifndef PLS_INSTRUMENTATION
 #define PLS_JOIN_HELPER(a,b) a##b
 #define PLS_JOIN(a,b) PLS_JOIN_HELPER(a,b)
+#define PLS_PROJECT(name) \
+constexpr static char const* const PLS_JOIN(kPlsString,__COUNTER__) = name;
 #define PLS_IMPORT(lib,repo) \
-constexpr static char const* const PLS_JOIN(kPlsImportLib,__COUNTER__) = lib; \
-constexpr static char const* const PLS_JOIN(kPlsImportRepo,__COUNTER__) = repo;
+constexpr static char const* const PLS_JOIN(kPlsString,__COUNTER__) = lib; \
+constexpr static char const* const PLS_JOIN(kPlsString,__COUNTER__) = repo;
 #else
+#define PLS_PROJECT(name) PLS_INSTRUMENTATION_OUTPUT{"pls_project":name}
 #define PLS_IMPORT(lib,repo) PLS_INSTRUMENTATION_OUTPUT{"pls_import":{"lib":lib,"repo":repo}}
 #endif
 """
@@ -168,6 +171,9 @@ def traverse_source_tree(src_dir="."):
                 except json.decoder.JSONDecodeError as e:
                   pls_fail(f"PLS internal error: Can not parse `{stripped_line}` while processing `{full_src_name}`.")
             for pls_cmd in pls_commands:
+              if "pls_project" in pls_cmd:
+                # TODO(dkorolev): Parse the project name from `pls.json` as well.
+                per_dir[src_dir].project_name = pls_cmd["pls_project"]
               if "pls_import" in pls_cmd:
                 pls_import = pls_cmd["pls_import"]
                 if "lib" in pls_import and "repo" in pls_import:
