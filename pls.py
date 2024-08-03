@@ -31,18 +31,6 @@ parser.add_argument("--verbose", "-v", action="store_true", help="Increase outpu
 parser.add_argument('--dotpls', type=str, default=".pls", help="The directory to use for output if not `./.pls`.")
 flags, cmd = parser.parse_known_args()
 
-cc_instrument_sh = f"{flags.dotpls}/cc_instrument.sh"
-cc_instrument_sh_contents = """#!/bin/bash
-g++ -D PLS_INSTRUMENTATION -E "$1" 2>/dev/null | grep PLS_INSTRUMENTATION_OUTPUT | sed 's/^PLS_INSTRUMENTATION_OUTPUT//g'
-"""
-
-git_clone_sh = f"{flags.dotpls}/cc_git_clone.sh"
-cc_git_clone_sh_contents = """#!/bin/bash
-SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
-(cd "$SCRIPT_DIR"; mkdir -p deps)
-(cd "$SCRIPT_DIR/deps"; git clone "$1" "$2")
-"""
-
 pls_h_dir = f"{flags.dotpls}/pls_h_dir"
 pls_h = os.path.join(pls_h_dir, "pls.h")
 # TODO(dkorolev): This is the ugly version of this file, gotta clean it up.
@@ -56,6 +44,24 @@ constexpr static char const* const PLS_JOIN(kPlsImportRepo,__COUNTER__) = repo;
 #else
 #define PLS_IMPORT(lib,repo) PLS_INSTRUMENTATION_OUTPUT{"pls_import":{"lib":lib,"repo":repo}}
 #endif
+"""
+
+cc_instrument_sh = f"{flags.dotpls}/cc_instrument.sh"
+cc_instrument_sh_contents = f"""#!/bin/bash
+g++ \
+  -I{os.path.abspath(pls_h_dir)} \
+  -D PLS_INSTRUMENTATION \
+  -E \
+  "$1" 2>/dev/null \
+| grep PLS_INSTRUMENTATION_OUTPUT \
+| sed 's/^PLS_INSTRUMENTATION_OUTPUT//g'
+"""
+
+git_clone_sh = f"{flags.dotpls}/cc_git_clone.sh"
+cc_git_clone_sh_contents = """#!/bin/bash
+SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+(cd "$SCRIPT_DIR"; mkdir -p deps)
+(cd "$SCRIPT_DIR/deps"; git clone "$1" "$2")
 """
 
 def singleton_cmakelists_txt_contents(lib_name):
@@ -121,6 +127,8 @@ def traverse_source_tree(src_dirs=default_src_dirs):
   while queue_list:
     src_dir = queue_list.popleft()
     if src_dir not in already_traversed_src_dirs and (src_dir == "." or os.path.isdir(src_dir)):
+      if flags.verbose:
+        print(f"PLS: Analyzing `{src_dir}`.")
       libs_to_import = set()
       already_traversed_src_dirs.add(src_dir)
       pls_json_path = os.path.join(src_dir, "pls.json")
@@ -160,6 +168,8 @@ def traverse_source_tree(src_dirs=default_src_dirs):
                 lib, repo = pls_import["lib"], pls_import["repo"]
                 modules[lib] = repo
                 libs_to_import.add(lib)
+      for lib in libs_to_import:
+        print(f"PLS: Requirement `{lib}` from `{src_dir}`.")
       for lib in libs_to_import:
         if lib not in queue_set:
           add_to_queue(os.path.join(flags.dotpls, "deps", lib))
