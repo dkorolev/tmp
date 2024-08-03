@@ -87,9 +87,6 @@ if os.path.isfile("pls.py") or os.path.isfile("pls"):
 modules = {}
 executables = {}
 
-# Support both projects with source files in `src/` and in the main project directory.
-default_src_dirs = [".", "src"]
-
 @dataclass
 class PerDirectoryStatus:
   deps: set = field(default_factory = lambda: set())
@@ -124,7 +121,7 @@ def create_symlink_with_cmakelists_txt(dst_dir, lib_name, lib_cloned_dir):
         file.write(singleton_cmakelists_txt_contents(lib_name))
 
 already_traversed_src_dirs = set()
-def traverse_source_tree(src_dirs=default_src_dirs):
+def traverse_source_tree(src_dir="."):
   # TODO(dkorolev): Traverse recursively.
   # TODO(dkorolev): `libraries`? And a command to `run` them, if only with `objdump -s`?
   queue_list = deque()
@@ -133,8 +130,7 @@ def traverse_source_tree(src_dirs=default_src_dirs):
     abs_src_dir = os.path.abspath(src_dir)
     queue_list.append(abs_src_dir)
     queue_set.add(abs_src_dir)
-  for src_dir in src_dirs:
-    add_to_queue(src_dir)
+  add_to_queue(src_dir)
   while queue_list:
     src_dir = queue_list.popleft()
     if src_dir not in already_traversed_src_dirs and (src_dir == "." or os.path.isdir(src_dir)):
@@ -155,32 +151,39 @@ def traverse_source_tree(src_dirs=default_src_dirs):
             # TODO(dkorolev): Fail on branch mismatch.
             modules[lib] = repo
             libs_to_import.add(lib)
-      for src_name in os.listdir(src_dir):
-        if src_name.endswith(".cc"):
-          executable_name = src_name.rstrip(".cc")
-          per_dir[src_dir].executables[executable_name] = src_name
-          executables[executable_name] = executable_name  # TODO(dkorolev): Support `module::example_binary` names.
-          pls_commands = []
-          full_src_name = os.path.join(src_dir, src_name)
-          result = subprocess.run(["bash", cc_instrument_sh, full_src_name], capture_output=True, text=True)
-          for line in result.stdout.split("\n"):
-            stripped_line = line.rstrip(";").strip()
-            if stripped_line:
-              try:
-                pls_commands.append(json.loads(stripped_line))
-              except json.decoder.JSONDecodeError as e:
-                pls_fail(f"PLS internal error: Can not parse `{stripped_line}` while processing `{full_src_name}`.")
-          for pls_cmd in pls_commands:
-            if "pls_import" in pls_cmd:
-              pls_import = pls_cmd["pls_import"]
-              if "lib" in pls_import and "repo" in pls_import:
-                # TODO(dkorolev): Add branches. Fail if they do not match while installing the dependencies recursively.
-                # TODO(dkorolev): Maybe create and add to `#include`-s path the `pls.h` file from this tool?
-                # TODO(dkorolev): Variadic macro templates for branches.
-                lib, repo = pls_import["lib"], pls_import["repo"]
-                modules[lib] = repo
-                libs_to_import.add(lib)
-                per_dir[src_dir].executable_deps[executable_name].add(lib)
+      def process_sources_in_dir(true_src_dir, prefix=""):
+        for src_name in os.listdir(true_src_dir):
+          if src_name.endswith(".cc"):
+            executable_name = src_name.rstrip(".cc")
+            # TODO(dkorolev): This looks like a terrible hack, but would do for now.
+            if not "lib_" in executable_name and not "_lib" in executable_name:
+              per_dir[src_dir].executables[executable_name] = prefix + src_name
+              executables[executable_name] = executable_name  # TODO(dkorolev): Support `module::example_binary` names.
+            pls_commands = []
+            full_src_name = os.path.join(true_src_dir, src_name)
+            result = subprocess.run(["bash", cc_instrument_sh, full_src_name], capture_output=True, text=True)
+            for line in result.stdout.split("\n"):
+              stripped_line = line.rstrip(";").strip()
+              if stripped_line:
+                try:
+                  pls_commands.append(json.loads(stripped_line))
+                except json.decoder.JSONDecodeError as e:
+                  pls_fail(f"PLS internal error: Can not parse `{stripped_line}` while processing `{full_src_name}`.")
+            for pls_cmd in pls_commands:
+              if "pls_import" in pls_cmd:
+                pls_import = pls_cmd["pls_import"]
+                if "lib" in pls_import and "repo" in pls_import:
+                  # TODO(dkorolev): Add branches. Fail if they do not match while installing the dependencies recursively.
+                  # TODO(dkorolev): Maybe create and add to `#include`-s path the `pls.h` file from this tool?
+                  # TODO(dkorolev): Variadic macro templates for branches.
+                  lib, repo = pls_import["lib"], pls_import["repo"]
+                  modules[lib] = repo
+                  libs_to_import.add(lib)
+                  per_dir[src_dir].executable_deps[executable_name].add(lib)
+      process_sources_in_dir(src_dir)
+      src_src_dir = os.path.join(src_dir, "src")
+      if os.path.isdir(src_src_dir):
+        process_sources_in_dir(src_src_dir, "src/")
       for lib in libs_to_import:
         print(f"PLS: Requirement `{lib}` from `{src_dir}`.")
         per_dir[src_dir].deps.add(lib)
