@@ -313,16 +313,20 @@ def update_dependencies():
 
   traverse_source_tree()
 
-  apply_gitignore_changes_and_more()
+  # TODO(dkorolev): Exclude the manually-added symlinks to the libraries, in `static/.vscode/settings.json`.
+  if not os.path.isdir(".vscode"):
+    if flags.verbose:
+      print("PLS: Adding `.vscode` to `.gitignore`, as it was not here before.")
+    per_dir[full_abspath].add_to_gitignore.append(".vscode")
+  os.makedirs(".vscode", exist_ok=True)
+  self_static_vscode_dir = os.path.join(self_static_dir, ".vscode")
+  for dot_vs_code_static_file in os.listdir(self_static_vscode_dir):
+    dst_static_file = os.path.join(".vscode", dot_vs_code_static_file)
+    if not os.path.isfile(dst_static_file):
+      with open(dst_static_file, "w") as file:
+        file.write(read_static_file(os.path.join(self_static_vscode_dir, dot_vs_code_static_file)))
 
-# TODO(dkorolev): Exclude the manually-added symlinks to the libraries, in `static/.vscode/settings.json`.
-os.makedirs(".vscode", exist_ok=True)
-self_static_vscode_dir = os.path.join(self_static_dir, ".vscode")
-for dot_vs_code_static_file in os.listdir(self_static_vscode_dir):
-  dst_static_file = os.path.join(".vscode", dot_vs_code_static_file)
-  if not os.path.isfile(dst_static_file):
-    with open(dst_static_file, "w") as file:
-      file.write(read_static_file(os.path.join(self_static_vscode_dir, dot_vs_code_static_file)))
+  apply_gitignore_changes_and_more()
 
 if not cmd:
   # TODO(dkorolev): Differentiate between debug and release?
