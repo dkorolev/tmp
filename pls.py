@@ -78,6 +78,17 @@ SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
 (cd "$SCRIPT_DIR/deps"; git clone "$1" "$2")
 """
 
+# TODO(dkorolev): Move these `*_contents` vars into a separate module.
+pls_gdb_or_lldb_sh = f"{flags.dotpls}/gdb_or_lldb.sh"
+pls_gdb_or_lldb_sh_contents="""#!/bin/bash
+DIR=$(dirname "${BASH_SOURCE[0]}")
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  echo "export GDB_OR_LLDB=lldb" > "${DIR}/../.vscode/gdb_or_lldb"
+else
+  echo "export GDB_OR_LLDB=gdb" > "${DIR}/../.vscode/gdb_or_lldb"
+fi
+"""
+
 def singleton_cmakelists_txt_contents(lib_name):
   lib_name_uppercase = lib_name.upper()
   return f"""cmake_minimum_required(VERSION 3.14.1)
@@ -317,6 +328,11 @@ def update_dependencies():
     with open(git_clone_sh, "w") as file:
       file.write(cc_git_clone_sh_contents)
     os.chmod(git_clone_sh, 0o755)
+
+  if not os.path.isfile(pls_gdb_or_lldb_sh):
+    with open(pls_gdb_or_lldb_sh, "w") as file:
+      file.write(pls_gdb_or_lldb_sh_contents)
+    os.chmod(pls_gdb_or_lldb_sh, 0o755)
 
   if not os.path.isdir(pls_h_dir):
     os.makedirs(pls_h_dir, exist_ok=True)
