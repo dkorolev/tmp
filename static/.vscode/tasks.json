@@ -1,0 +1,29 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "cmake",
+      "label": "cmake_build",
+      "command": "build",
+      "targets": [
+        "all"
+      ],
+      "group": "build",
+      "problemMatcher": [],
+      "detail": "run cmake build"
+    },
+    {
+      "type": "shell",
+      "label": "gdb_or_lldb.sh",
+      "command": "${workspaceFolder}/.pls/export_gdb_or_lldb.sh",
+      "problemMatcher": []
+    },
+    {
+      "label": "pre_debug",
+      "dependsOn": [
+        "cmake_build",
+        "gdb_or_lldb.sh"
+      ]
+    }
+  ]
+}

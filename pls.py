@@ -37,7 +37,8 @@ if os.getenv("PLS_VERBOSE") is not None:
 
 self_static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 def read_static_file(fn):
-  return open(os.path.join(self_static_dir, fn)).read()
+  with open(os.path.join(self_static_dir, fn)) as file:
+    return file.read()
 
 # To clone git repos from a local path, not Github, for faster tests, for more reproducibility, and not to spam Github.
 # TODO(dkorolev): Probably look in `..`, and/or in the dir(s) specified in `pls.json`.
@@ -56,8 +57,8 @@ cc_instrument_sh_contents = read_static_file(".pls/cc_instrument.sh")
 git_clone_sh = f"{flags.dotpls}/git_clone.sh"
 cc_git_clone_sh_contents = read_static_file(".pls/git_clone.sh")
 
-pls_gdb_or_lldb_sh = f"{flags.dotpls}/gdb_or_lldb.sh"
-pls_gdb_or_lldb_sh_contents = read_static_file(".pls/gdb_or_lldb.sh")
+pls_export_gdb_or_lldb_sh = f"{flags.dotpls}/export_gdb_or_lldb.sh"
+pls_export_gdb_or_lldb_sh_contents = read_static_file(".pls/export_gdb_or_lldb.sh")
 
 def singleton_cmakelists_txt_contents(lib_name):
   lib_name_uppercase = lib_name.upper()
@@ -299,10 +300,10 @@ def update_dependencies():
       file.write(cc_git_clone_sh_contents)
     os.chmod(git_clone_sh, 0o755)
 
-  if not os.path.isfile(pls_gdb_or_lldb_sh):
-    with open(pls_gdb_or_lldb_sh, "w") as file:
-      file.write(pls_gdb_or_lldb_sh_contents)
-    os.chmod(pls_gdb_or_lldb_sh, 0o755)
+  if not os.path.isfile(pls_export_gdb_or_lldb_sh):
+    with open(pls_export_gdb_or_lldb_sh, "w") as file:
+      file.write(pls_export_gdb_or_lldb_sh_contents)
+    os.chmod(pls_export_gdb_or_lldb_sh, 0o755)
 
   if not os.path.isdir(pls_h_dir):
     os.makedirs(pls_h_dir, exist_ok=True)
@@ -313,6 +314,15 @@ def update_dependencies():
   traverse_source_tree()
 
   apply_gitignore_changes_and_more()
+
+# TODO(dkorolev): Exclude the manually-added symlinks to the libraries, in `static/.vscode/settings.json`.
+os.makedirs(".vscode", exist_ok=True)
+self_static_vscode_dir = os.path.join(self_static_dir, ".vscode")
+for dot_vs_code_static_file in os.listdir(self_static_vscode_dir):
+  dst_static_file = os.path.join(".vscode", dot_vs_code_static_file)
+  if not os.path.isfile(dst_static_file):
+    with open(dst_static_file, "w") as file:
+      file.write(read_static_file(os.path.join(self_static_vscode_dir, dot_vs_code_static_file)))
 
 if not cmd:
   # TODO(dkorolev): Differentiate between debug and release?

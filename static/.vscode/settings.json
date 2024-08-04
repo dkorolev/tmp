@@ -1,0 +1,13 @@
+{
+  "files.exclude": {
+    ".vscode/": true,
+    ".pls/": true,
+    ".debug/": true,
+    ".release /": true,
+    "build/": true,
+    "**/.DS_Store": true
+  },
+  "files.associations": {
+    "iostream": "cpp"
+  }
+}
