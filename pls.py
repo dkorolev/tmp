@@ -241,6 +241,9 @@ def update_dependencies():
           file.write("\n")
           file.write("set(CMAKE_CXX_STANDARD 11)\n")
           file.write("set(CMAKE_CXX_STANDARD_REQUIRED True)\n")
+          file.write("\n")
+          file.write('# This is for `#include "pls.h"` to work.\n')
+          file.write('include_directories("${CMAKE_SOURCE_DIR}/.pls/pls_h_dir/")\n')
           if full_dir_data.deps:
             file.write("\n")
             for dep in full_dir_data.deps:
