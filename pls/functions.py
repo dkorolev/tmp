@@ -199,7 +199,7 @@ def traverse_source_tree(src_dir="."):
                         pls_commands = []
                         full_src_name = os.path.join(true_src_dir, src_name)
                         result = subprocess.run(
-                            ["bash", cc_instrument_sh, full_src_name],
+                            ["bash", cc_instrument_sh, full_src_name, os.path.join(os.path.abspath(flags.dotpls), "pls_h_dir")],
                             capture_output=True,
                             text=True,
                         )
