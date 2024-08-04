@@ -64,7 +64,7 @@ pls_export_gdb_or_lldb_sh_contents = read_static_file(".pls/export_gdb_or_lldb.s
 def singleton_cmakelists_txt_contents(lib_name):
   lib_name_uppercase = lib_name.upper()
   return f"""cmake_minimum_required(VERSION 3.14.1)
-project(sigleton_{lib_name_uppercase} C CXX)
+project(singleton_{lib_name_uppercase} C CXX)
 get_property(VALUE GLOBAL PROPERTY "HAS_SINGLETON_LIBRARY_{lib_name_uppercase}")
 if(NOT VALUE)
   set_property(GLOBAL PROPERTY "HAS_SINGLETON_LIBRARY_{lib_name_uppercase}" TRUE)
