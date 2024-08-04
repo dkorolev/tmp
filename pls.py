@@ -35,7 +35,7 @@ flags, cmd = parser.parse_known_args()
 if os.getenv("PLS_VERBOSE") is not None:
   flags.verbose = True
 
-self_static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+self_static_dir = os.path.join(os.path.dirname(os.readlink(os.path.abspath(__file__))), "static")
 def read_static_file(fn):
   with open(os.path.join(self_static_dir, fn)) as file:
     return file.read()
