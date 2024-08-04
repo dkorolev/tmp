@@ -18,3 +18,7 @@ coverage: dev_install
 
 clean:
 	rm -rf build dist pls.egg-info htmlcov
+
+# Need to configure .pypirc with credentials
+push_pypi:
+	python -m twine upload --repository pls dist/*
