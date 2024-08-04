@@ -35,6 +35,10 @@ flags, cmd = parser.parse_known_args()
 if os.getenv("PLS_VERBOSE") is not None:
   flags.verbose = True
 
+self_static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+def read_static_file(fn):
+  return open(os.path.join(self_static_dir, fn)).read()
+
 # To clone git repos from a local path, not Github, for faster tests, for more reproducibility, and not to spam Github.
 # TODO(dkorolev): Probably look in `..`, and/or in the dir(s) specified in `pls.json`.
 github_https_prefix = "https://github.com/"
@@ -44,50 +48,16 @@ if injected_github_path:
 
 pls_h_dir = f"{flags.dotpls}/pls_h_dir"
 pls_h = os.path.join(pls_h_dir, "pls.h")
-# TODO(dkorolev): This is the ugly version of this file, gotta clean it up.
-pls_h_contents = """#pragma once
-#ifndef PLS_INSTRUMENTATION
-#define PLS_JOIN_HELPER(a,b) a##b
-#define PLS_JOIN(a,b) PLS_JOIN_HELPER(a,b)
-#define PLS_PROJECT(name) \
-constexpr static char const* const PLS_JOIN(kPlsString,__COUNTER__) = name;
-#define PLS_IMPORT(lib,repo) \
-constexpr static char const* const PLS_JOIN(kPlsString,__COUNTER__) = lib; \
-constexpr static char const* const PLS_JOIN(kPlsString,__COUNTER__) = repo;
-#else
-#define PLS_PROJECT(name) PLS_INSTRUMENTATION_OUTPUT{"pls_project":name}
-#define PLS_IMPORT(lib,repo) PLS_INSTRUMENTATION_OUTPUT{"pls_import":{"lib":lib,"repo":repo}}
-#endif
-"""
+pls_h_contents = read_static_file(".pls/pls_h_dir/pls.h")
 
 cc_instrument_sh = f"{flags.dotpls}/cc_instrument.sh"
-cc_instrument_sh_contents = f"""#!/bin/bash
-g++ \
-  -I{os.path.abspath(pls_h_dir)} \
-  -D PLS_INSTRUMENTATION \
-  -E \
-  "$1" 2>/dev/null \
-| grep PLS_INSTRUMENTATION_OUTPUT \
-| sed 's/^PLS_INSTRUMENTATION_OUTPUT//g'
-"""
+cc_instrument_sh_contents = read_static_file(".pls/cc_instrument.sh")
 
 git_clone_sh = f"{flags.dotpls}/git_clone.sh"
-cc_git_clone_sh_contents = """#!/bin/bash
-SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
-(cd "$SCRIPT_DIR"; mkdir -p deps)
-(cd "$SCRIPT_DIR/deps"; git clone "$1" "$2")
-"""
+cc_git_clone_sh_contents = read_static_file(".pls/git_clone.sh")
 
-# TODO(dkorolev): Move these `*_contents` vars into a separate module.
 pls_gdb_or_lldb_sh = f"{flags.dotpls}/gdb_or_lldb.sh"
-pls_gdb_or_lldb_sh_contents="""#!/bin/bash
-DIR=$(dirname "${BASH_SOURCE[0]}")
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  echo "export GDB_OR_LLDB=lldb" > "${DIR}/../.vscode/gdb_or_lldb"
-else
-  echo "export GDB_OR_LLDB=gdb" > "${DIR}/../.vscode/gdb_or_lldb"
-fi
-"""
+pls_gdb_or_lldb_sh_contents = read_static_file(".pls/gdb_or_lldb.sh")
 
 def singleton_cmakelists_txt_contents(lib_name):
   lib_name_uppercase = lib_name.upper()
