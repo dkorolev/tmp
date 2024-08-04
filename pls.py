@@ -35,6 +35,13 @@ flags, cmd = parser.parse_known_args()
 if os.getenv("PLS_VERBOSE") is not None:
   flags.verbose = True
 
+# To clone git repos from a local path, not Github, for faster tests, for more reproducibility, and not to spam Github.
+# TODO(dkorolev): Probably look in `..`, and/or in the dir(s) specified in `pls.json`.
+github_https_prefix = "https://github.com/"
+injected_github_path = os.getenv("PLS_INJECT_GITHUB")
+if injected_github_path:
+  injected_github_path = f"file://{injected_github_path}"
+
 pls_h_dir = f"{flags.dotpls}/pls_h_dir"
 pls_h = os.path.join(pls_h_dir, "pls.h")
 # TODO(dkorolev): This is the ugly version of this file, gotta clean it up.
@@ -64,7 +71,7 @@ g++ \
 | sed 's/^PLS_INSTRUMENTATION_OUTPUT//g'
 """
 
-git_clone_sh = f"{flags.dotpls}/cc_git_clone.sh"
+git_clone_sh = f"{flags.dotpls}/git_clone.sh"
 cc_git_clone_sh_contents = """#!/bin/bash
 SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
 (cd "$SCRIPT_DIR"; mkdir -p deps)
@@ -206,6 +213,11 @@ def traverse_source_tree(src_dir="."):
             if not os.path.isdir(lib_dir):
               if flags.verbose:
                 print(f"PLS: Need to clone `{lib}` from `{repo}`.")
+              if injected_github_path and repo.startswith(github_https_prefix):
+                new_repo = f"{injected_github_path}/{repo[len(github_https_prefix):]}"
+                if flags.verbose:
+                  print(f"PLS: Injecting `{repo}` -> `{new_repo}`.")
+                repo = new_repo
               result = subprocess.run(["bash", git_clone_sh, repo, lib])
               if result.returncode != 0:
                 pls_fail(f"PLS: Clone of {repo} failed.")
