@@ -32,6 +32,9 @@ parser.add_argument("--verbose", "-v", action="store_true", help="Increase outpu
 parser.add_argument('--dotpls', type=str, default=".pls", help="The directory to use for output if not `./.pls`.")
 flags, cmd = parser.parse_known_args()
 
+if os.getenv("PLS_VERBOSE") is not None:
+  flags.verbose = True
+
 pls_h_dir = f"{flags.dotpls}/pls_h_dir"
 pls_h = os.path.join(pls_h_dir, "pls.h")
 # TODO(dkorolev): This is the ugly version of this file, gotta clean it up.
