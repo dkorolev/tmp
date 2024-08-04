@@ -27,6 +27,7 @@ import json
 from collections import deque
 from collections import defaultdict
 from dataclasses import dataclass, field
+from distutils.sysconfig import get_python_lib
 
 parser = argparse.ArgumentParser(description="PLS: The trivial build system for C++ and beyond, v0.01")
 parser.add_argument("--verbose", "-v", action="store_true", help="Increase output verbosity")
@@ -36,7 +37,12 @@ flags, cmd = parser.parse_known_args()
 if os.getenv("PLS_VERBOSE") is not None:
   flags.verbose = True
 
-self_static_dir = os.path.join(os.path.dirname(os.readlink(os.path.abspath(__file__))), "static")
+if os.path.isfile(get_python_lib() + "/pls"):
+  base_dir = get_python_lib() + "/pls"
+else:
+  base_dir = os.path.dirname(__file__)
+
+self_static_dir = os.path.join(base_dir, "static")
 def read_static_file(fn):
   with open(os.path.join(self_static_dir, fn)) as file:
     return file.read()
@@ -254,7 +260,8 @@ def update_dependencies():
               file.write("\n")
               file.write(f"add_executable({exe} {src})\n")
               if exe in full_dir_data.executable_deps:
-                file.write(f"target_link_libraries({exe} {" ".join(sorted(list(full_dir_data.executable_deps[exe])))})\n")
+                libs = " ".join(sorted(list(full_dir_data.executable_deps[exe])))
+                file.write(f"target_link_libraries({exe} { libs })\n")
       gitignore_lines = sorted(full_dir_data.add_to_gitignore)
       gitignore_file = os.path.join(full_dir, ".gitignore")
       skip_this_gitignore = False
@@ -329,7 +336,7 @@ def update_dependencies():
 
   apply_gitignore_changes_and_more()
 
-if not cmd:
+if __name__ == "__main__" and not cmd:
   # TODO(dkorolev): Differentiate between debug and release?
   # TODO(dkorolev): The "selfupdate" command, in case `pls` is `alias`-ed into a cloned repo?
   # TODO(dkorolev): `test` to run the tests, and also `release_test`.
@@ -389,21 +396,26 @@ def cmd_run(args):
     else:
       pls_fail(f"PLS: Executable `{args[0]}` is not in {json.dumps(list(executables.keys()))}.")
 
-cmds = {}
-cmds["version"] = cmd_version
-cmds["v"] = cmd_version
-cmds["clean"] = cmd_clean
-cmds["c"] = cmd_clean
-cmds["install"] = cmd_install
-cmds["i"] = cmd_install
-cmds["build"] = cmd_build
-cmds["b"] = cmd_build
-cmds["run"] = cmd_run
-cmds["r"] = cmd_run
 
-cmd0 = cmd[0].strip().lower()
-if cmd0 in cmds:
-  cmds[cmd0](cmd[1:])
-else:
-  print(f"PLS: The command `{cmd0}` is not recognized, try `pls help`.")
-  sys.exit(0)
+def main():
+    cmds = {}
+    cmds["version"] = cmd_version
+    cmds["v"] = cmd_version
+    cmds["clean"] = cmd_clean
+    cmds["c"] = cmd_clean
+    cmds["install"] = cmd_install
+    cmds["i"] = cmd_install
+    cmds["build"] = cmd_build
+    cmds["b"] = cmd_build
+    cmds["run"] = cmd_run
+    cmds["r"] = cmd_run
+
+    cmd0 = cmd[0].strip().lower()
+    if cmd0 in cmds:
+      cmds[cmd0](cmd[1:])
+    else:
+      print(f"PLS: The command `{cmd0}` is not recognized, try `pls --help`.")
+      sys.exit(0)
+
+if __name__ == '__main__':
+    main()

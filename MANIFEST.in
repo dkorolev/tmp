@@ -1,0 +1,2 @@
+recursive-include pls/static/.pls *
+recursive-include pls/static/.vscode *
