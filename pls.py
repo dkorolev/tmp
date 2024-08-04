@@ -2,6 +2,7 @@
 
 # TODO(dkorolev): Bugfix that `pls c[lean]` should not try to install any deps!
 # TODO(dkorolev): Make top-level symlinks relative, not absolute!
+# TODO(dkorolev): Add that cache file, to know when to re-scan the sources and when to re-install the deps.
 
 # REMAINS FOR v0.0.1 to be "complete":
 # * Generate the `CMakeLists.txt` if not exists.
