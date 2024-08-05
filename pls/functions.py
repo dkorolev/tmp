@@ -68,16 +68,16 @@ if injected_github_path:
 
 pls_h_dir = f"{flags.dotpls}/pls_h_dir"
 pls_h = os.path.join(pls_h_dir, "pls.h")
-pls_h_contents = read_static_file(".pls/pls_h_dir/pls.h")
+pls_h_contents = read_static_file("dot_pls/pls_h_dir/pls.h")
 
 cc_instrument_sh = f"{flags.dotpls}/cc_instrument.sh"
-cc_instrument_sh_contents = read_static_file(".pls/cc_instrument.sh")
+cc_instrument_sh_contents = read_static_file("dot_pls/cc_instrument.sh")
 
 git_clone_sh = f"{flags.dotpls}/git_clone.sh"
-cc_git_clone_sh_contents = read_static_file(".pls/git_clone.sh")
+cc_git_clone_sh_contents = read_static_file("dot_pls/git_clone.sh")
 
 pls_export_gdb_or_lldb_sh = f"{flags.dotpls}/export_gdb_or_lldb.sh"
-pls_export_gdb_or_lldb_sh_contents = read_static_file(".pls/export_gdb_or_lldb.sh")
+pls_export_gdb_or_lldb_sh_contents = read_static_file("dot_pls/export_gdb_or_lldb.sh")
 
 
 def singleton_cmakelists_txt_contents(lib_name):
@@ -398,7 +398,7 @@ def update_dependencies():
             print("PLS: Adding `.vscode` to `.gitignore`, as it was not here before.")
         per_dir[full_abspath].add_to_gitignore.append(".vscode")
     os.makedirs(".vscode", exist_ok=True)
-    self_static_vscode_dir = os.path.join(self_static_dir, ".vscode")
+    self_static_vscode_dir = os.path.join(self_static_dir, "dot_vscode")
     for dot_vs_code_static_file in os.listdir(self_static_vscode_dir):
         dst_static_file = os.path.join(".vscode", dot_vs_code_static_file)
         if not os.path.isfile(dst_static_file):
