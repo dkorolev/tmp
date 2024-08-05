@@ -1,6 +1,6 @@
 #!/bin/bash
 g++ \
-  -I/home/dima/playground6/.pls/pls_h_dir \
+  -I"$2" \
   -D PLS_INSTRUMENTATION \
   -E \
   "$1" 2>/dev/null \

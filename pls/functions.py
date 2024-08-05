@@ -27,19 +27,28 @@ import json
 from collections import deque
 from collections import defaultdict
 from dataclasses import dataclass, field
+from distutils.sysconfig import get_python_lib
 
 parser = argparse.ArgumentParser(description="PLS: The trivial build system for C++ and beyond, v0.01")
 parser.add_argument("--verbose", "-v", action="store_true", help="Increase output verbosity")
-parser.add_argument('--dotpls', type=str, default=".pls", help="The directory to use for output if not `./.pls`.")
+parser.add_argument("--dotpls", type=str, default=".pls", help="The directory to use for output if not `./.pls`.")
 flags, cmd = parser.parse_known_args()
 
 if os.getenv("PLS_VERBOSE") is not None:
   flags.verbose = True
 
-self_static_dir = os.path.join(os.path.dirname(os.readlink(os.path.abspath(__file__))), "static")
+if os.path.isfile(get_python_lib() + "/pls"):
+  base_dir = get_python_lib() + "/pls"
+else:
+  base_dir = os.path.dirname(__file__)
+
+self_static_dir = os.path.join(base_dir, "static")
+
+
 def read_static_file(fn):
   with open(os.path.join(self_static_dir, fn)) as file:
     return file.read()
+
 
 # To clone git repos from a local path, not Github, for faster tests, for more reproducibility, and not to spam Github.
 # TODO(dkorolev): Probably look in `..`, and/or in the dir(s) specified in `pls.json`.
@@ -50,16 +59,17 @@ if injected_github_path:
 
 pls_h_dir = f"{flags.dotpls}/pls_h_dir"
 pls_h = os.path.join(pls_h_dir, "pls.h")
-pls_h_contents = read_static_file(".pls/pls_h_dir/pls.h")
+pls_h_contents = read_static_file("dot_pls/pls_h_dir/pls.h")
 
 cc_instrument_sh = f"{flags.dotpls}/cc_instrument.sh"
-cc_instrument_sh_contents = read_static_file(".pls/cc_instrument.sh")
+cc_instrument_sh_contents = read_static_file("dot_pls/cc_instrument.sh")
 
 git_clone_sh = f"{flags.dotpls}/git_clone.sh"
-cc_git_clone_sh_contents = read_static_file(".pls/git_clone.sh")
+cc_git_clone_sh_contents = read_static_file("dot_pls/git_clone.sh")
 
 pls_export_gdb_or_lldb_sh = f"{flags.dotpls}/export_gdb_or_lldb.sh"
-pls_export_gdb_or_lldb_sh_contents = read_static_file(".pls/export_gdb_or_lldb.sh")
+pls_export_gdb_or_lldb_sh_contents = read_static_file("dot_pls/export_gdb_or_lldb.sh")
+
 
 def singleton_cmakelists_txt_contents(lib_name):
   lib_name_uppercase = lib_name.upper()
@@ -72,24 +82,28 @@ if(NOT VALUE)
 endif()
 """
 
+
 def pls_fail(msg):
   # TODO(dkorolev): Write the failure message to an env-provided file, for "unit"-testing `pls`.
   print(msg)
   sys.exit(1)
+
 
 if os.path.isfile("pls.py") or os.path.isfile("pls"):
   pls_fail("PLS: You are probably running `pls` from the wrong directory. Navigate to your project directory first.")
 
 modules = {}
 
+
 @dataclass
 class PerDirectoryStatus:
-  deps: set = field(default_factory = lambda: set())
+  deps: set = field(default_factory=lambda: set())
   project_name: str = "pls_project"
-  executables: dict = field(default_factory = dict)
-  executable_deps: defaultdict = field(default_factory = lambda: defaultdict(set))
+  executables: dict = field(default_factory=dict)
+  executable_deps: defaultdict = field(default_factory=lambda: defaultdict(set))
   add_to_gitignore = []
   need_cmakelists_txt: bool = False
+
 
 per_dir = defaultdict(PerDirectoryStatus)
 
@@ -97,6 +111,7 @@ full_abspath = os.path.abspath(".")
 per_dir[full_abspath].add_to_gitignore.append(flags.dotpls)
 per_dir[full_abspath].add_to_gitignore.append(".debug")
 per_dir[full_abspath].add_to_gitignore.append(".release")
+
 
 def create_symlink_with_cmakelists_txt(dst_dir, lib_name, lib_cloned_dir):
   # TODO(dkorolev): Creating the symlink should involve the `.gitignore` magic.
@@ -115,16 +130,21 @@ def create_symlink_with_cmakelists_txt(dst_dir, lib_name, lib_cloned_dir):
       with open(cmakelists_path, "w") as file:
         file.write(singleton_cmakelists_txt_contents(lib_name))
 
+
 already_traversed_src_dirs = set()
+
+
 def traverse_source_tree(src_dir="."):
   # TODO(dkorolev): Traverse recursively.
   # TODO(dkorolev): `libraries`? And a command to `run` them, if only with `objdump -s`?
   queue_list = deque()
   queue_set = set()
+
   def add_to_queue(src_dir):
     abs_src_dir = os.path.abspath(src_dir)
     queue_list.append(abs_src_dir)
     queue_set.add(abs_src_dir)
+
   add_to_queue(src_dir)
   while queue_list:
     src_dir = queue_list.popleft()
@@ -146,6 +166,7 @@ def traverse_source_tree(src_dir="."):
             # TODO(dkorolev): Fail on branch mismatch.
             modules[lib] = repo
             libs_to_import.add(lib)
+
       def process_sources_in_dir(true_src_dir, prefix=""):
         for src_name in os.listdir(true_src_dir):
           if src_name.endswith(".cc"):
@@ -155,7 +176,11 @@ def traverse_source_tree(src_dir="."):
               per_dir[src_dir].executables[executable_name] = prefix + src_name
             pls_commands = []
             full_src_name = os.path.join(true_src_dir, src_name)
-            result = subprocess.run(["bash", cc_instrument_sh, full_src_name], capture_output=True, text=True)
+            result = subprocess.run(
+              ["bash", cc_instrument_sh, full_src_name, os.path.join(os.path.abspath(flags.dotpls), "pls_h_dir")],
+              capture_output=True,
+              text=True,
+            )
             for line in result.stdout.split("\n"):
               stripped_line = line.rstrip(";").strip()
               if stripped_line:
@@ -177,6 +202,7 @@ def traverse_source_tree(src_dir="."):
                   modules[lib] = repo
                   libs_to_import.add(lib)
                   per_dir[src_dir].executable_deps[executable_name].add(lib)
+
       process_sources_in_dir(src_dir)
       src_src_dir = os.path.join(src_dir, "src")
       if os.path.isdir(src_src_dir):
@@ -213,6 +239,7 @@ def traverse_source_tree(src_dir="."):
             create_symlink_with_cmakelists_txt(dst_dir=".", lib_name=lib, lib_cloned_dir=lib_dir)
             create_symlink_with_cmakelists_txt(dst_dir=src_dir, lib_name=lib, lib_cloned_dir=lib_dir)
 
+
 def update_dependencies():
   if os.path.isfile("CMakeLists.txt"):
     if flags.verbose:
@@ -234,7 +261,9 @@ def update_dependencies():
           file.write("# NOTE: This `CMakeLists.txt` is autogenerated by `pls`.\n")
           file.write("#       It is perfectly OK to edit, if only to remove this header.\n")
           # TODO(dkorolev): Time to introduce `.pls/cache.json`, at least to keep track of which `CMakeLists.txt`-s to clean!
-          file.write("#       Just keep in mind that a) it is `.gitignore`-d now, and b) it will be deleted on `pls clean`.\n")
+          file.write(
+            "#       Just keep in mind that a) it is `.gitignore`-d now, and b) it will be deleted on `pls clean`.\n"
+          )
           file.write("\n")
           file.write("cmake_minimum_required(VERSION 3.14.1)\n")
           file.write("\n")
@@ -254,7 +283,8 @@ def update_dependencies():
               file.write("\n")
               file.write(f"add_executable({exe} {src})\n")
               if exe in full_dir_data.executable_deps:
-                file.write(f"target_link_libraries({exe} {" ".join(sorted(list(full_dir_data.executable_deps[exe])))})\n")
+                libs = " ".join(sorted(list(full_dir_data.executable_deps[exe])))
+                file.write(f"target_link_libraries({exe} { libs })\n")
       gitignore_lines = sorted(full_dir_data.add_to_gitignore)
       gitignore_file = os.path.join(full_dir, ".gitignore")
       skip_this_gitignore = False
@@ -320,7 +350,7 @@ def update_dependencies():
       print("PLS: Adding `.vscode` to `.gitignore`, as it was not here before.")
     per_dir[full_abspath].add_to_gitignore.append(".vscode")
   os.makedirs(".vscode", exist_ok=True)
-  self_static_vscode_dir = os.path.join(self_static_dir, ".vscode")
+  self_static_vscode_dir = os.path.join(self_static_dir, "dot_vscode")
   for dot_vs_code_static_file in os.listdir(self_static_vscode_dir):
     dst_static_file = os.path.join(".vscode", dot_vs_code_static_file)
     if not os.path.isfile(dst_static_file):
@@ -329,15 +359,18 @@ def update_dependencies():
 
   apply_gitignore_changes_and_more()
 
-if not cmd:
+
+if __name__ == "__main__" and not cmd:
   # TODO(dkorolev): Differentiate between debug and release?
   # TODO(dkorolev): The "selfupdate" command, in case `pls` is `alias`-ed into a cloned repo?
   # TODO(dkorolev): `test` to run the tests, and also `release_test`.
   print("PLS: Requires a command, the most common ones are `build`, `run`, `clean`, and `version`.")
   sys.exit(0)
 
+
 def cmd_version(unused_args):
   print(f"PLS v0.0.1 NOT READY YET")
+
 
 def cmd_clean(args):
   traverse_source_tree()
@@ -357,10 +390,12 @@ def cmd_clean(args):
   if flags.verbose:
     print("PLS: Clean successful.")
 
+
 def cmd_install(args):
   update_dependencies()
   if flags.verbose:
     print("PLS: Dependencies cloned successfully.")
+
 
 def cmd_build(args):
   update_dependencies()
@@ -374,6 +409,7 @@ def cmd_build(args):
   if flags.verbose:
     print("PLS: Build successful.")
 
+
 def cmd_run(args):
   cmd_build([])
   # TODO(dkorolev): Forward the command line? And test it?
@@ -382,28 +418,38 @@ def cmd_run(args):
     if len(executables) == 1:
       result = subprocess.run([f"./.debug/{next(iter(executables.keys()))}"])
     else:
-      pls_fail(f"PLS: Has more than one executable, specify the name direcly, one of {json.dumps(list(executables.keys()))}.")
+      pls_fail(
+        f"PLS: Has more than one executable, specify the name direcly, one of {json.dumps(list(executables.keys()))}."
+      )
   else:
     if args[0] in executables:
       result = subprocess.run([f"./.debug/{args[0]}"])
     else:
       pls_fail(f"PLS: Executable `{args[0]}` is not in {json.dumps(list(executables.keys()))}.")
 
-cmds = {}
-cmds["version"] = cmd_version
-cmds["v"] = cmd_version
-cmds["clean"] = cmd_clean
-cmds["c"] = cmd_clean
-cmds["install"] = cmd_install
-cmds["i"] = cmd_install
-cmds["build"] = cmd_build
-cmds["b"] = cmd_build
-cmds["run"] = cmd_run
-cmds["r"] = cmd_run
 
-cmd0 = cmd[0].strip().lower()
-if cmd0 in cmds:
-  cmds[cmd0](cmd[1:])
-else:
-  print(f"PLS: The command `{cmd0}` is not recognized, try `pls help`.")
-  sys.exit(0)
+def main():
+  if os.path.isfile("pls.py") or os.path.isfile("pls") or os.path.isdir("pls"):
+    pls_fail("PLS: You are probably running `pls` from the wrong directory. Navigate to your project directory first.")
+  cmds = {}
+  cmds["version"] = cmd_version
+  cmds["v"] = cmd_version
+  cmds["clean"] = cmd_clean
+  cmds["c"] = cmd_clean
+  cmds["install"] = cmd_install
+  cmds["i"] = cmd_install
+  cmds["build"] = cmd_build
+  cmds["b"] = cmd_build
+  cmds["run"] = cmd_run
+  cmds["r"] = cmd_run
+
+  cmd0 = cmd[0].strip().lower() if cmd else ""
+  if cmd0 in cmds:
+    cmds[cmd0](cmd[1:])
+  else:
+    print(f"PLS: The command `{cmd0}` is not recognized, try `pls --help`.")
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+  main()
