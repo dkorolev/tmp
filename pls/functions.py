@@ -445,6 +445,8 @@ def cmd_run(args):
 
 
 def main():
+    if os.path.isfile("pls.py") or os.path.isfile("pls") or os.path.isdir("pls"):
+        pls_fail("PLS: You are probably running `pls` from the wrong directory. Navigate to your project directory first.")
     cmds = {}
     cmds["version"] = cmd_version
     cmds["v"] = cmd_version
@@ -457,7 +459,7 @@ def main():
     cmds["run"] = cmd_run
     cmds["r"] = cmd_run
 
-    cmd0 = cmd[0].strip().lower()
+    cmd0 = cmd[0].strip().lower() if cmd else ''
     if cmd0 in cmds:
         cmds[cmd0](cmd[1:])
     else:
