@@ -12,7 +12,7 @@ def get_version(file='./pls/static/version'):
 
 
 setup(
-    name="pls",
+    name="plsbuild",
     version=get_version(),
     packages=find_packages(),
     install_requires=get_reqs(),
