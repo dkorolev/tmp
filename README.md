@@ -72,7 +72,7 @@ This works as a standalone example, with `pls build` or `pls run`.
 
 Besides, after the first run of `pls`, either `pls build` or `pls run`, the created `CMakeLists.txt` can be used with an IDE.
 
-Note that you do not need the `"pls.h"` file. The `pls`-provided build setup will place it in a temporary folder.
+Note that you do not need the `"pls.h"` file. The `pls`-provided build setup handles this. `TODO(dkorolev):` Make sure it works for non-`pls` users to some day.
 
 When it comes to where the `PLS_IMPORT` "directive" should go in the code, just make sure it takes place before `#include`-ing any headers from the libraries to be imported. Otherwise the preprocessor will fail on missing header files, will never get to processing the `PLS_IMPORT` statements, and the auto-import magic will not work.
 
