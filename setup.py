@@ -5,9 +5,15 @@ def get_reqs(file="requirements.txt"):
     with open(file) as f:
         return [s.rstrip("\n") for s in f.readlines()]
 
+def get_version(file='./pls/static/version'):
+    with open(file, 'r') as reader:
+        version = reader.read()
+        return version
+
+
 setup(
     name="pls",
-    version="0.1",
+    version=get_version(),
     packages=find_packages(),
     install_requires=get_reqs(),
     author="Dima Korolev",
