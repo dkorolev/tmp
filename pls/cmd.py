@@ -27,7 +27,6 @@ import json
 from collections import deque
 from collections import defaultdict
 from dataclasses import dataclass, field
-from distutils.sysconfig import get_python_lib
 
 parser = argparse.ArgumentParser(description="PLS: The trivial build system for C++ and beyond, v0.01")
 parser.add_argument("--verbose", "-v", action="store_true", help="Increase output verbosity")
@@ -37,11 +36,14 @@ flags, cmd = parser.parse_known_args()
 if os.getenv("PLS_VERBOSE") is not None:
     flags.verbose = True
 
-if os.path.isfile(get_python_lib() + "/pls"):
-    base_dir = get_python_lib() + "/pls"
-else:
-    base_dir = os.path.dirname(__file__)
+def file_or_link(path):
+    try:
+        result = os.readlink(path)
+    except OSError:
+        result = path
+    return result
 
+base_dir = file_or_link(os.path.dirname(__file__))
 self_static_dir = os.path.join(base_dir, "static")
 
 
@@ -49,6 +51,8 @@ def read_static_file(fn):
     with open(os.path.join(self_static_dir, fn)) as file:
         return file.read()
 
+
+version = read_static_file('version').strip()
 
 # To clone git repos from a local path, not Github, for faster tests, for more reproducibility, and not to spam Github.
 # TODO(dkorolev): Probably look in `..`, and/or in the dir(s) specified in `pls.json`.
@@ -376,7 +380,7 @@ if __name__ == "__main__" and not cmd:
 
 
 def cmd_version(unused_args):
-    print(f"PLS v0.0.1 NOT READY YET")
+    print(f"PLS {version} NOT READY YET")
 
 
 def cmd_clean(args):
