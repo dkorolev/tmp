@@ -14,5 +14,5 @@ setup(
     author_email="dima@current.ai",
     description="C/C++ Build Tool",
     include_package_data=True,
-    entry_points={"console_scripts": ["pls=pls.functions:main"]},
+    entry_points={"console_scripts": ["pls=pls.cmd:main"]},
 )
