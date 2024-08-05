@@ -43,7 +43,7 @@ def file_or_link(path):
         result = path
     return result
 
-base_dir = file_or_link(os.path.dirname(__file__))
+base_dir = os.path.dirname(file_or_link(__file__))
 self_static_dir = os.path.join(base_dir, "static")
 
 
