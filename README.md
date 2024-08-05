@@ -1,6 +1,6 @@
 # `pls`
 
-The build system for C++ and not only for C++, designed for predictability and ease of use.
+The build system for `CMakeLists.txt` projects, mostly C and C++. Designed for predictability and ease of use.
 
 ## Setup
 
@@ -94,7 +94,7 @@ The long-form way is to use the `pls.json` file:
 }
 ```
 
-For toy projects, it is probably 
+For toy projects, it is probably an overkill, sice `PLS_IMPORT()` would do the trick. If you are maintaining a library and a non-zero portion of your users are using `pls`, you may want to have a `pls.json` file.
 
 Also, `TODO(dkorolev):` need to support some `pls add ...` command to add dependencies into `pls.json` automatically.
 
@@ -116,6 +116,6 @@ Also, when creating these dependencies, `pls` will wrap each and every one into 
 
 * Test targets.
 * Debug vs. release.
-* Hierarchical dependencies.
 * Versioning and conflicts.
 * Proper "unit" tests, Github actions, links to them.
+* Branch protection so that I drop the habit of pushing straight into `main`. =)
