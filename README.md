@@ -6,7 +6,7 @@ The build system for C++ and not only for C++, designed for predictability and e
 
 You will need `pls` in your path. Cloning this repo and `alias`-ing it in your `.bashrc` / `.zshrc` would do.
 
-`TODO(dkorolev)`: Add a `pip install` command.
+Alternatively, if you have a Python environment set up, `pip3 install plsbuild` does the trick.
 
 If `pls version` or `pls v` works, you're good.
 
