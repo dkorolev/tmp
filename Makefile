@@ -5,7 +5,7 @@ test-reqs:
 	pip install -r test-requirements.txt
 
 package:
-	python setup.py bdist_wheel
+	python3 setup.py bdist_wheel
 
 fmt: test-reqs
 	black pls
@@ -31,4 +31,4 @@ clean:
 
 # Need to configure .pypirc with credentials
 push_pypi: test-reqs
-	python -m twine upload --repository pls dist/*
+	python3 -m twine upload --repository plsbuild dist/*
