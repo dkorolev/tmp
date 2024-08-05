@@ -1,3 +1,5 @@
+.PHONY: package fmt lint dev_install test coverage clean push_pypi
+
 package:
 	python setup.py bdist_wheel
 
