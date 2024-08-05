@@ -36,13 +36,21 @@ flags, cmd = parser.parse_known_args()
 if os.getenv("PLS_VERBOSE") is not None:
     flags.verbose = True
 
-base_dir = os.path.dirname(__file__)
+def file_or_link(path):
+    try:
+        result = os.readlink(path)
+    except OSError:
+        result = path
+    return result
+
+base_dir = file_or_link(os.path.dirname(__file__))
 self_static_dir = os.path.join(base_dir, "static")
 
 
 def read_static_file(fn):
     with open(os.path.join(self_static_dir, fn)) as file:
         return file.read()
+
 
 version = read_static_file('version').strip()
 
@@ -372,7 +380,7 @@ if __name__ == "__main__" and not cmd:
 
 
 def cmd_version(unused_args):
-    print(f"PLS %s NOT READY YET" % version)
+    print(f"PLS {version} NOT READY YET")
 
 
 def cmd_clean(args):
