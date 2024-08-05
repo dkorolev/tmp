@@ -1,1 +1,1 @@
-__all__ = ["functions"]
+__all__ = ["cmd"]
