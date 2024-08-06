@@ -2,6 +2,9 @@
 
 set -e
 
+pls version || (echo 'Need the `pls` tool installed.' && exit 1)
+echo
+
 SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
 
 # Figure out we are in the right dir.
