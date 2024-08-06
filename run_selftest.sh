@@ -20,10 +20,10 @@ SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
   for T in $(find . -name pls_go.sh | sort); do
     N_RUN=$((N_RUN+1))
     TN="$(dirname "$T")"
-    echo 'Running test `'$TN'`.'
+    echo 'Running the test from  `'$TN'/`.'
     (cd "$TN"; ./pls_go.sh) && N_PASSED=$((N_PASSED+1)) || N_FAILED=$((N_FAILED+1))
     echo
   done
-  echo "Total tests run: $N_RUN, passed: $N_PASSED, failed: $N_FAILED"
+  echo "Total tests run: $N_RUN, passed: $N_PASSED, failed: $N_FAILED."
   [ "$N_FAILED" == 0 ]
 )
