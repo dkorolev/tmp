@@ -1,0 +1,23 @@
+name: Self-test the HEAD.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+    - main
+
+jobs:
+  run:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: git clone
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: alias pls
+        run: alias pls=pls/pls
+      - name: ./run_selftest.sh
+        run: ./run_selftest.sh
